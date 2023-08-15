@@ -19,7 +19,8 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
     private AptdProxy aptd;
     private AptdTransactionProxy proxy;
 
-    public bool install_cancellable { get; private set; }
+    public bool can_cancel { get; private set; }
+    private Cancellable? cancellable = null;
     public TransactionMode transaction_mode { get; private set; }
     public string engine_to_address { get; private set; }
 
@@ -61,6 +62,7 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
         engine_to_address = engine_name;
         string[] packages = {};
         packages += engine_to_address;
+        cancellable = new Cancellable ();
 
         foreach (var packet in packages) {
             message ("Packet: %s", packet);
@@ -71,10 +73,10 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
 
         // Resolve the package name
         try {
-            result = task.resolve_sync (Pk.Filter.NOT_INSTALLED, packages, null, ((process, type) => {}));
+            result = task.resolve_sync (Pk.Filter.NOT_INSTALLED, packages, cancellable, ((process, type) => {}));
         } catch (Error e) {
             warning ("Could not resolve packages: %s", e.message);
-            install_failed ();
+            on_failed ();
             return;
         }
 
@@ -86,19 +88,19 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
         });
 
         // Install packages
-        task.install_packages_async.begin (package_ids, null, progress_callback, ((obj, res) => {
+        task.install_packages_async.begin (package_ids, cancellable, progress_callback, ((obj, res) => {
             try {
                 result = task.install_packages_async.end (res);
             } catch (Error e) {
                 warning ("Failed to install packages: %s", e.message);
-                install_failed ();
+                on_failed ();
                 return;
             }
 
             Pk.Error err = result.get_error_code ();
             if (err != null) {
                 warning ("Error while installing packages: %s, %s", err.code.to_string (), err.details);
-                install_failed ();
+                on_failed ();
                 return;
             }
         }));
@@ -115,13 +117,9 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
     }
 
     public void cancel_install () {
-        if (install_cancellable) {
+        if (cancellable != null && can_cancel) {
             warning ("cancel_install");
-            try {
-                proxy.cancel ();
-            } catch (Error e) {
-                warning ("cannot cancel installation:%s", e.message);
-            }
+            cancellable.cancel ();
         }
     }
 
@@ -129,7 +127,7 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
         switch (type) {
             case Pk.ProgressType.STATUS:
                 if (progress.status == Pk.Status.FINISHED) {
-                    install_finished ();
+                    on_finished ();
                 }
 
                 break;
@@ -137,11 +135,21 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
                 progress_changed (progress.percentage);
                 break;
             case Pk.ProgressType.ALLOW_CANCEL:
-                install_cancellable = progress.allow_cancel;
+                can_cancel = progress.allow_cancel;
                 break;
             default:
                 break;
         }
+    }
+
+    private void on_finished () {
+        cancellable = null;
+        install_finished ();
+    }
+
+    private void on_failed () {
+        cancellable = null;
+        install_failed ();
     }
 
     private void run_transaction (string transaction_id) {
@@ -156,7 +164,8 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
             }
 
             if (prop == "Cancellable") {
-                install_cancellable = val.get_boolean ();
+//                install_cancellable = val.get_boolean ();
+                can_cancel = val.get_boolean ();
             }
         });
 

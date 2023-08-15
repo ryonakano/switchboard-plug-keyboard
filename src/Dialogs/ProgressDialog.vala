@@ -48,7 +48,7 @@ public class Pantheon.Keyboard.InputMethodPage.ProgressDialog : Granite.Dialog {
 
         var cancel_button = (Gtk.Button) add_button (_("Cancel"), 0);
 
-        installer.bind_property ("install-cancellable", cancel_button, "sensitive");
+        installer.bind_property ("can-cancel", cancel_button, "sensitive");
 
         var grid = new Gtk.Grid () {
             column_spacing = 12,
