@@ -23,7 +23,7 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
     public TransactionMode transaction_mode { get; private set; }
     public string engine_to_address { get; private set; }
 
-    public signal void install_finished (string langcode);
+    public signal void install_finished ();
     public signal void install_failed ();
     public signal void remove_finished (string langcode);
     public signal void progress_changed (int progress);
@@ -127,6 +127,12 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
 
     private void progress_callback (Pk.Progress progress, Pk.ProgressType type) {
         switch (type) {
+            case Pk.ProgressType.STATUS:
+                if (progress.status == Pk.Status.FINISHED) {
+                    install_finished ();
+                }
+
+                break;
             case Pk.ProgressType.PERCENTAGE:
                 progress_changed (progress.percentage);
                 break;
@@ -182,7 +188,8 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
         message ("ID %s -> %s", id, success ? "success" : "failed");
 
         if (action[0:1] == "i") { // install
-            install_finished (lang);
+//            install_finished (lang);
+            install_finished ();
         } else {
             remove_finished (lang);
         }

@@ -103,7 +103,10 @@ public class Pantheon.Keyboard.InputMethodPage.AddEnginesPopover : Gtk.Popover {
                         transient_for = (Gtk.Window) get_toplevel ()
                     };
                     installer.progress_changed.connect ((p) => {
-                        progress_dialog.progress = p;
+                        progress_dialog.set_progress (p);
+                    });
+                    installer.install_finished.connect (() => {
+                        progress_dialog.destroy ();
                     });
                     progress_dialog.run ();
                 } else {

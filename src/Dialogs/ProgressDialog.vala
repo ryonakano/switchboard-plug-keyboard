@@ -16,16 +16,6 @@
 */
 
 public class Pantheon.Keyboard.InputMethodPage.ProgressDialog : Granite.Dialog {
-    public int progress {
-        set {
-            if (value >= 100) {
-                destroy ();
-            }
-
-            progress_bar.fraction = value / 100.0;
-        }
-    }
-
     private Gtk.ProgressBar progress_bar;
 
     construct {
@@ -78,5 +68,9 @@ public class Pantheon.Keyboard.InputMethodPage.ProgressDialog : Granite.Dialog {
             installer.cancel_install ();
             destroy ();
         });
+    }
+
+    public void set_progress (int progress) {
+        progress_bar.fraction = progress;
     }
 }
