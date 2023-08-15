@@ -105,8 +105,19 @@ public class Pantheon.Keyboard.InputMethodPage.AddEnginesPopover : Gtk.Popover {
                     installer.progress_changed.connect ((p) => {
                         progress_dialog.set_progress (p);
                     });
-                    installer.install_finished.connect (() => {
+                    installer.finished.connect (() => {
                         progress_dialog.destroy ();
+
+                        if (!installer.transaction_result) {
+                            var error_dialog = new Granite.MessageDialog.with_image_from_icon_name (
+                                _("Failed to install %s").printf (engine_to_install),
+                                _("The following error message may be helpful:"),
+                                "dialog-error"
+                            );
+                            error_dialog.show_error_details (installer.error_message);
+                            error_dialog.run ();
+                            error_dialog.destroy ();
+                        }
                     });
                     progress_dialog.run ();
                 } else {

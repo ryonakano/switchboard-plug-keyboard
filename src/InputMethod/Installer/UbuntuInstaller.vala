@@ -20,9 +20,10 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
     private Cancellable? cancellable = null;
     public TransactionMode transaction_mode { get; private set; }
     public string package { get; private set; }
+    public bool transaction_result { get; private set; }
+    public string error_message { get; private set; }
 
-    public signal void install_finished ();
-    public signal void install_failed ();
+    public signal void finished ();
     public signal void progress_changed (int progress);
 
     public enum TransactionMode {
@@ -42,6 +43,7 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
 
     public void install (string pkg) {
         transaction_mode = TransactionMode.INSTALL;
+        transaction_result = false;
         package = pkg;
         string[] packages = {};
         packages += package;
@@ -58,8 +60,8 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
         try {
             result = task.resolve_sync (Pk.Filter.NOT_INSTALLED, packages, cancellable, ((process, type) => {}));
         } catch (Error e) {
-            warning ("Could not resolve packages: %s", e.message);
-            on_failed ();
+            error_message = _("Could not resolve packages: %s").printf (e.message);
+            finish ();
             return;
         }
 
@@ -75,17 +77,17 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
             try {
                 result = task.install_packages_async.end (res);
             } catch (Error e) {
-                warning ("Failed to install packages: %s", e.message);
-                on_failed ();
+                error_message = _("Failed to install packages: %s").printf (e.message);
                 return;
             }
 
             Pk.Error err = result.get_error_code ();
             if (err != null) {
-                warning ("Error while installing packages: %s, %s", err.code.to_string (), err.details);
-                on_failed ();
+                error_message = err.code.to_string ();
                 return;
             }
+
+            transaction_result = true;
         }));
     }
 
@@ -100,7 +102,7 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
         switch (type) {
             case Pk.ProgressType.STATUS:
                 if (progress.status == Pk.Status.FINISHED) {
-                    on_finished ();
+                    finish ();
                 }
 
                 break;
@@ -115,13 +117,8 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
         }
     }
 
-    private void on_finished () {
+    private void finish () {
         cancellable = null;
-        install_finished ();
-    }
-
-    private void on_failed () {
-        cancellable = null;
-        install_failed ();
+        finished ();
     }
 }
