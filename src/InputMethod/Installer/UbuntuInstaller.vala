@@ -1,5 +1,5 @@
 /*
-* Copyright 2011-2020 elementary, Inc. (https://elementary.io)
+* Copyright 2011-2023 elementary, Inc. (https://elementary.io)
 *
 * This program is free software: you can redistribute it
 * and/or modify it under the terms of the GNU Lesser General Public License as
@@ -16,17 +16,13 @@
 */
 
 public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
-    private AptdProxy aptd;
-    private AptdTransactionProxy proxy;
-
     public bool can_cancel { get; private set; }
     private Cancellable? cancellable = null;
     public TransactionMode transaction_mode { get; private set; }
-    public string engine_to_address { get; private set; }
+    public string package { get; private set; }
 
     public signal void install_finished ();
     public signal void install_failed ();
-    public signal void remove_finished (string langcode);
     public signal void progress_changed (int progress);
 
     public enum TransactionMode {
@@ -34,8 +30,6 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
         REMOVE,
         INSTALL_MISSING,
     }
-
-    Gee.HashMap<string, string> transactions;
 
     private static GLib.Once<UbuntuInstaller> instance;
     public static unowned UbuntuInstaller get_default () {
@@ -46,22 +40,11 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
 
     private UbuntuInstaller () {}
 
-    construct {
-        transactions = new Gee.HashMap<string, string> ();
-        aptd = new AptdProxy ();
-
-        try {
-            aptd.connect_to_aptd ();
-        } catch (Error e) {
-            warning ("Could not connect to APT daemon");
-        }
-    }
-
-    public void install (string engine_name) {
+    public void install (string pkg) {
         transaction_mode = TransactionMode.INSTALL;
-        engine_to_address = engine_name;
+        package = pkg;
         string[] packages = {};
-        packages += engine_to_address;
+        packages += package;
         cancellable = new Cancellable ();
 
         foreach (var packet in packages) {
@@ -104,16 +87,6 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
                 return;
             }
         }));
-
-//        aptd.install_packages.begin (packages, (obj, res) => {
-//            try {
-//                var transaction_id = aptd.install_packages.end (res);
-//                transactions.@set (transaction_id, "i-" + engine_name);
-//                run_transaction (transaction_id);
-//            } catch (Error e) {
-//                warning ("Could not queue downloads: %s", e.message);
-//            }
-//        });
     }
 
     public void cancel_install () {
@@ -150,59 +123,5 @@ public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
     private void on_failed () {
         cancellable = null;
         install_failed ();
-    }
-
-    private void run_transaction (string transaction_id) {
-        proxy = new AptdTransactionProxy ();
-        proxy.finished.connect (() => {
-            on_apt_finshed (transaction_id, true);
-        });
-
-        proxy.property_changed.connect ((prop, val) => {
-            if (prop == "Progress") {
-                progress_changed ((int) val.get_int32 ());
-            }
-
-            if (prop == "Cancellable") {
-//                install_cancellable = val.get_boolean ();
-                can_cancel = val.get_boolean ();
-            }
-        });
-
-        try {
-            proxy.connect_to_aptd (transaction_id);
-            proxy.simulate ();
-
-            proxy.run ();
-        } catch (Error e) {
-            on_apt_finshed (transaction_id, false);
-            warning ("Could no run transaction: %s", e.message);
-        }
-    }
-
-    private void on_apt_finshed (string id, bool success) {
-        if (!success) {
-            install_failed ();
-            transactions.unset (id);
-            return;
-        }
-
-        if (!transactions.has_key (id)) { //transaction already removed
-            return;
-        }
-
-        var action = transactions.get (id);
-        var lang = action[2:action.length];
-
-        message ("ID %s -> %s", id, success ? "success" : "failed");
-
-        if (action[0:1] == "i") { // install
-//            install_finished (lang);
-            install_finished ();
-        } else {
-            remove_finished (lang);
-        }
-
-        transactions.unset (id);
     }
 }

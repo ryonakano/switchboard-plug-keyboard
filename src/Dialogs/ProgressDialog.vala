@@ -33,10 +33,10 @@ public class Pantheon.Keyboard.InputMethodPage.ProgressDialog : Granite.Dialog {
         unowned UbuntuInstaller installer = UbuntuInstaller.get_default ();
         switch (installer.transaction_mode) {
             case UbuntuInstaller.TransactionMode.INSTALL:
-                primary_label.label = _("Installing %s").printf (installer.engine_to_address);
+                primary_label.label = _("Installing %s").printf (installer.package);
                 break;
             case UbuntuInstaller.TransactionMode.REMOVE:
-                primary_label.label = _("Removing %s").printf (installer.engine_to_address);
+                primary_label.label = _("Removing %s").printf (installer.package);
                 break;
         }
 
