@@ -17,7 +17,7 @@
 * Boston, MA 02110-1301 USA
 */
 
-namespace Pantheon.Keyboard.Shortcuts {
+namespace Keyboard.Shortcuts {
     private enum Schema { WM, MUTTER, GALA, MEDIA, COUNT }
 
     // helper class for gsettings
@@ -26,6 +26,15 @@ namespace Pantheon.Keyboard.Shortcuts {
         public GLib.Settings[] schemas;
 
         private string[] schema_names;
+
+        private static GLib.Once<Shortcuts.Settings> instance;
+        public static unowned Shortcuts.Settings get_default () {
+            return instance.once (() => {
+                return new Shortcuts.Settings ();
+            });
+        }
+
+        private Settings () {}
 
         construct {
             schema_names = {

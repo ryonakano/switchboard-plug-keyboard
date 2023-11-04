@@ -15,7 +15,7 @@
 * with this program. If not, see http://www.gnu.org/licenses/.
 */
 
-public class Pantheon.Keyboard.InputMethodPage.UbuntuInstaller : Object {
+public class Keyboard.InputMethodPage.UbuntuInstaller : Object {
     public bool can_cancel { get; private set; }
     private Cancellable? cancellable = null;
     public TransactionMode transaction_mode { get; private set; }

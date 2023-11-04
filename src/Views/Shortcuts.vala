@@ -17,13 +17,9 @@
 * Boston, MA 02110-1301 USA
 */
 
-namespace Pantheon.Keyboard.Shortcuts {
-    // list of all shortcuts in gsettings, global object
-    private List list;
-    // class to interact with gsettings
-    private Shortcuts.Settings settings;
+namespace Keyboard.Shortcuts {
     // array of shortcut views, one for each section
-    private ShortcutDisplayInterface[] shortcut_views;
+    private Gtk.ListBox[] shortcut_views;
 
     public enum SectionID {
         WINDOWS,
@@ -60,15 +56,14 @@ namespace Pantheon.Keyboard.Shortcuts {
         }
     }
 
-    class Page : Gtk.Grid {
+    class Page : Gtk.Box {
         private Gtk.ListBox section_switcher;
         private SwitcherRow custom_shortcuts_row;
 
         construct {
             CustomShortcutSettings.init ();
 
-            list = new List ();
-            settings = new Shortcuts.Settings ();
+            unowned var list = Shortcuts.ShortcutsList.get_default ();
 
             section_switcher = new Gtk.ListBox ();
             section_switcher.add (new SwitcherRow (list.windows_group));
@@ -82,57 +77,66 @@ namespace Pantheon.Keyboard.Shortcuts {
             custom_shortcuts_row = new SwitcherRow (list.custom_group);
             section_switcher.add (custom_shortcuts_row);
 
-            section_switcher.select_row (section_switcher.get_row_at_index (0));
+            var switcher_scrolled = new Gtk.ScrolledWindow (null, null) {
+                child = section_switcher,
+                hscrollbar_policy = NEVER
+            };
 
-            var scrolled_window = new Gtk.ScrolledWindow (null, null);
-            scrolled_window.add (section_switcher);
+            var switcher_frame = new Gtk.Frame (null) {
+                child = switcher_scrolled
+            };
 
-            var switcher_frame = new Gtk.Frame (null);
-            switcher_frame.add (scrolled_window);
+            var stack = new Gtk.Stack () {
+                homogeneous = false, // Prevents extra scrollbar in short lists
+                vexpand = true
+            };
 
-            var stack = new Gtk.Stack ();
-            stack.homogeneous = false;
+            var stack_scrolled = new Gtk.ScrolledWindow (null, null) {
+                child = stack
+            };
 
-            var scrolledwindow = new Gtk.ScrolledWindow (null, null);
-            scrolledwindow.expand = true;
-            scrolledwindow.add (stack);
+            var add_button_label = new Gtk.Label (_("Add Shortcut"));
 
-            var add_button = new Gtk.Button.with_label (_("Add Shortcut")) {
-                always_show_image = true,
-                image = new Gtk.Image.from_icon_name ("list-add-symbolic", Gtk.IconSize.SMALL_TOOLBAR),
+            var add_button_box = new Gtk.Box (HORIZONTAL, 0);
+            add_button_box.add (new Gtk.Image.from_icon_name ("list-add-symbolic", BUTTON));
+            add_button_box.add (add_button_label);
+
+            var add_button = new Gtk.Button () {
+                child = add_button_box,
                 margin_top = 3,
                 margin_bottom = 3
             };
             add_button.get_style_context ().add_class (Gtk.STYLE_CLASS_FLAT);
 
-            var actionbar = new Gtk.ActionBar ();
-            actionbar.hexpand = true;
-            actionbar.no_show_all = true;
-            actionbar.get_style_context ().add_class (Gtk.STYLE_CLASS_INLINE_TOOLBAR);
+            add_button_label.mnemonic_widget = add_button;
+
+            var actionbar = new Gtk.ActionBar () {
+                hexpand = true
+            };
             actionbar.get_style_context ().add_class (Gtk.STYLE_CLASS_FLAT);
-            actionbar.add (add_button);
+            actionbar.pack_start (add_button);
 
-            var action_grid = new Gtk.Grid ();
-            action_grid.attach (scrolledwindow, 0, 0);
-            action_grid.attach (actionbar, 0, 1);
+            var action_box = new Gtk.Box (VERTICAL, 0);
+            action_box.add (stack_scrolled);
+            action_box.add (actionbar);
 
-            var frame = new Gtk.Frame (null);
-            frame.add (action_grid);
+            var frame = new Gtk.Frame (null) {
+                child = action_box
+            };
 
-            column_spacing = 12;
-            column_homogeneous = true;
+            spacing = 12;
             margin_start = 12;
             margin_end = 12;
             margin_bottom = 12;
-            attach (switcher_frame, 0, 0);
-            attach (frame, 1, 0, 2, 1);
+            add (switcher_frame);
+            add (frame);
 
             for (int id = 0; id < SectionID.CUSTOM; id++) {
-                shortcut_views += new ShortcutListBox ((SectionID) id, this);
+                shortcut_views += new ShortcutListBox ((SectionID) id);
             }
 
             if (CustomShortcutSettings.available) {
-                var custom_tree = new CustomShortcutListBox (this);
+                var custom_tree = new CustomShortcutListBox ();
                 add_button.clicked.connect (() => custom_tree.on_add_clicked ());
 
                 shortcut_views += custom_tree;
@@ -146,9 +150,12 @@ namespace Pantheon.Keyboard.Shortcuts {
                 var index = row.get_index ();
                 stack.visible_child = shortcut_views[index];
 
-                actionbar.no_show_all = index != SectionID.CUSTOM;
-                actionbar.visible = index == SectionID.CUSTOM;
-                show_all ();
+                actionbar.visible = stack.visible_child is CustomShortcutListBox;
+            });
+
+            // Doing this too early makes the actionbar show by default
+            realize.connect (() => {
+                section_switcher.select_row (section_switcher.get_row_at_index (0));
             });
         }
 
@@ -156,54 +163,27 @@ namespace Pantheon.Keyboard.Shortcuts {
             section_switcher.select_row (custom_shortcuts_row);
         }
 
-        public bool system_shortcut_conflicts (Shortcut shortcut, out string name, out string group) {
-            name = "";
-            group = "";
-            foreach (var view in shortcut_views) {
-                if (view is ShortcutListBox) {
-                    if (view.shortcut_conflicts (shortcut, out name, out group)) {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        public bool custom_shortcut_conflicts (Shortcut shortcut, out string name, out string group) {
-            name = "";
-            group = "";
-            foreach (var view in shortcut_views) {
-                if (view is CustomShortcutListBox) {
-                    if (view.shortcut_conflicts (shortcut, out name, out group)) {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
         private class SwitcherRow : Gtk.ListBoxRow {
-            public Pantheon.Keyboard.Shortcuts.Group group { get; construct; }
+            public Keyboard.Shortcuts.Group group { get; construct; }
 
-            public SwitcherRow (Pantheon.Keyboard.Shortcuts.Group group) {
+            public SwitcherRow (Keyboard.Shortcuts.Group group) {
                 Object (group: group);
             }
 
             construct {
                 var icon = new Gtk.Image.from_icon_name (group.icon_name, Gtk.IconSize.DND);
 
-                var label = new Gtk.Label (group.label);
-                label.xalign = 0;
+                var label = new Gtk.Label (group.label) {
+                    xalign = 0
+                };
 
-                var grid = new Gtk.Grid ();
-                grid.margin = 6;
-                grid.column_spacing = 6;
-                grid.add (icon);
-                grid.add (label);
+                var box = new Gtk.Box (HORIZONTAL, 6) {
+                    margin = 6
+                };
+                box.add (icon);
+                box.add (label);
 
-                add (grid);
+                child = box;
             }
         }
     }

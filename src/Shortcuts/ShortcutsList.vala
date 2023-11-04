@@ -17,7 +17,7 @@
 * Boston, MA 02110-1301 USA
 */
 
-namespace Pantheon.Keyboard.Shortcuts {
+namespace Keyboard.Shortcuts {
     struct Group {
         public string icon_name;
         public string label;
@@ -26,7 +26,7 @@ namespace Pantheon.Keyboard.Shortcuts {
         public string[] keys;
     }
 
-    class List : GLib.Object {
+    class ShortcutsList : GLib.Object {
         public Group[] groups;
         public Group windows_group;
         public Group workspaces_group;
@@ -36,6 +36,15 @@ namespace Pantheon.Keyboard.Shortcuts {
         public Group a11y_group;
         public Group system_group;
         public Group custom_group;
+
+        private static GLib.Once<ShortcutsList> instance;
+        public static unowned ShortcutsList get_default () {
+            return instance.once (() => {
+                return new ShortcutsList ();
+            });
+        }
+
+        private ShortcutsList () {}
 
         construct {
             windows_group = {};
@@ -52,6 +61,8 @@ namespace Pantheon.Keyboard.Shortcuts {
             add_action (ref windows_group, Schema.WM, _("Toggle always on Top"), "toggle-above");
             add_action (ref windows_group, Schema.WM, _("Cycle Windows"), "switch-windows");
             add_action (ref windows_group, Schema.WM, _("Cycle Windows backwards"), "switch-windows-backward");
+            add_action (ref windows_group, Schema.WM, _("Cycle Windows of application"), "switch-group");
+            add_action (ref windows_group, Schema.WM, _("Cycle Windows of application backwards"), "switch-group-backward");
             add_action (ref windows_group, Schema.MUTTER, _("Tile Left"), "toggle-tiled-left");
             add_action (ref windows_group, Schema.MUTTER, _("Tile Right"), "toggle-tiled-right");
             add_action (ref windows_group, Schema.GALA, _("Window Overview"), "expose-windows");
